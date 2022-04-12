@@ -1,104 +1,129 @@
 import java.io.File;
+import java.io.IOException;
 import java.util.*;
-import java.text.ParseException;
+
+import javax.print.attribute.standard.MediaSize.Other;
+
 import java.text.SimpleDateFormat;
 
 public class ReadFilmData {
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		//parsing and reading the CSV file data into the film (object) array
 		// provide the path here...
     File directory = new File("");
 		System.out.println(directory.getAbsolutePath());
 		String path = directory.getAbsolutePath() + "\\Film.csv";
 
-		Scanner sc = null;
-		Film[] films = null; 
+		Scanner in = new Scanner(System.in);
+		Film[] films = new Film[10000];
+		
+  	// String name = directory.getAbsolutePath() + "//Film.csv"
+		Scanner sc = new Scanner(new File(path));
 		SimpleDateFormat ft = new SimpleDateFormat ("yyyy-MM-dd");
-
-  	// String name = directory.getAbsolutePath() + "//Film.csv";
-		try {
-
-			sc = new Scanner(path);
-			films = new Film[10000];
 			
-			// this will just print the header in CSV file
-			sc.nextLine();
-			
-			int size = 0; String st = "";
+		// this will just print the header in CSV file
+	// this will just print the header in CSV file
+		sc.nextLine();
 
-			while (sc.hasNextLine())  //returns a boolean value
-			{
-				try {
-					st = sc.nextLine();
-					String[] data = st.split(",");
-
-					Date release = ft.parse(data[2]);
-					float filmLength = Float.parseFloat(data[4]);
-
-					if( release.before( ft.parse("1895-12-01")))
-						throw new 
-							InputMismatchException("Film date older than film industry");
-					else if( release.after( ft.parse("2022-04-11")) )
-						throw new 
-							InputMismatchException("Film date is in the future");
-					else if( filmLength > 3.2 )
-						throw new
-							InputMismatchException("Film is too long");
-					else if ( filmLength < 0.0 )
-						throw new
-							InputMismatchException("length = " 
-																			+ filmLength 
-																			+ " is not valid" );
-
-					films[size++] = new Film(Integer.parseInt(data[0]), data[3], data[1], release , filmLength , Float.parseFloat(data[5]));
-				} catch(InputMismatchException imex){
-					System.out.println(imex.getMessage());
-					imex.printStackTrace();
-				}
-
-			}
+		int i = 0; String st = "";
+		while (sc.hasNextLine())  //returns a boolean value
+		{
+			st = sc.nextLine();
+			String[] data = st.split(",");
+			films[i++] = new Film(Integer.parseInt(data[0]), data[3], data[1], ft.parse(data[2]), Float.parseFloat(data[4]), Float.parseFloat(data[5]));
+		}
+		sc.close(); 
+		
 			// time to sort
 			// We can print film details due to overridden toString method in film class
-			timeToSort(films, 10);
-			timeToSort(films, 100);
-			timeToSort(films, 1000);
-			timeToSort(films, 5000);
-			timeToSort(films, 10000);
-
-		} catch( RuntimeException rex ){
-			System.out.println(rex.getMessage());
-			rex.printStackTrace();
-		} catch( ParseException pex ){
-			System.out.println(pex.getMessage());
-			pex.printStackTrace();
-		} finally {
-			if( sc != null )
-			 sc.close(); //closes the scanner
-		}
+		timeToSort(films, 10);
+		timeToSort(films, 100);
+		timeToSort(films, 1000);
+		timeToSort(films, 5000);
+		timeToSort(films, 10000);
 
     // show sorted films by length
-    for(Film film : films) 
-			if(film != null)
-				System.out.println(film);
 
-		Scanner in = null;
-		try {
-			in = new Scanner(System.in);
-			System.out.print("Whats your goal length: ");
-			float goal = in.nextFloat();
+		System.out.print("Whats your goal length: ");
+		float goal = in.nextFloat();
+		in.nextLine();
 
 			// binary search to find films
-			for(Film film : binarySearching(films, goal) ) {
+		Film[] filmsFounded = binarySearching(films, goal);
+
+		if(filmsFounded == null){
+			System.out.println("Not an existing a film with length " + goal);
+		} else {
+			for(Film film : filmsFounded ) {
 				System.out.println(film);
 			}
-		} catch (InputMismatchException imex ){
-			System.out.println(imex.getMessage());
-		}finally{
-			if( in != null )
-			 in.close();
 		}
+
+		// inserting new films in project
+		String option;
+		do{
+			System.out.print("Do you want to add new films in list? (yes/no)");
+			option = in.nextLine();
+
+			if(option.equalsIgnoreCase("no")) break;
+			
+			int filmID = films.length+1;
+
+			System.out.print("Insert the title: ");
+			String title = in.nextLine();
+			
+			System.out.print("Insert the genre: ");
+			String genre = in.nextLine();
+			
+			Date release_date;
+			do {
+				System.out.print("Insert the release date( format = yyyy-MM-dd ): ");
+				release_date = ft.parse(in.nextLine());
+
+				if( release_date.before(ft.parse("1895-12-01")) ){
+					System.out.println("before the film industry");
+				}else if( release_date.after( ft.parse("2022-04-11")) ){
+					System.out.println("sometime in the future!");
+				}else break;
+			} while( true );
+
+			float length;
+			try{
+				System.out.print("Insert the film length: ");
+				length= in.nextFloat();
+
+				if(length <= 0) {
+					throw new IOException("film length cannot be negative!");
+				}
+			}catch(IOException iox){
+				System.out.println(iox.getMessage());
+				System.out.print("Insert the film length (greater than 0 and lower than 3.5): ");
+				length = in.nextFloat();
+			}
+			
+			System.out.print("Insert the film rental cost: ");
+			float rental_cost = in.nextFloat();
+			in.nextLine();
+			
+			addNewfilm(films, new Film(filmID, title, genre, release_date, length, rental_cost));
+
+			System.out.println("New film added sucessfully");
+
+		}while(! option.equalsIgnoreCase("no"));
+		
     
+	}
+
+	public static void addNewfilm(Film[] films, Film film){
+		Film[] copy = films;
+		films = new Film[films.length+1];
+
+		for(int i=0; i<films.length-1; i++){
+			films[i] = copy[i];
+		}
+
+		films[films.length-1] = film;
 	}
 
   public static void timeToSort(Film []array, int size) throws RuntimeException{
@@ -132,11 +157,11 @@ public class ReadFilmData {
 		merge(array, l, r, mid, size-mid);
   }
 
-  public static void merge(Film[] merged, Film[] left, Film[] right, int leftSize, int rightSize) throws RuntimeException{
+  public static void merge(Film[] merged, Film[] left, Film[] right, int leftSize, int rightSize) {
 
       int i=0, j=0, k=0;
-      // i é a posição do array left
-      // j é a posição do array right
+      // i position array left
+      // j position array right
       // k is for merge
 
       while( i < leftSize && j < rightSize ){
@@ -164,7 +189,7 @@ public class ReadFilmData {
   }
 
   
-  public static Film[] binarySearching( Film[] array , float goal ) throws RuntimeException{
+  public static Film[] binarySearching( Film[] array , float goal ) {
     
     int size = array.length;
     int start = 0;
@@ -297,12 +322,12 @@ class Film implements Comparable<Object>{
 		*/		
 		Film flm = (Film)obj;
 		
-		if (this == null && obj == null ) return 0;
-		else if( flm == null ) return 1;
-		else if( this == null ) return -1;
-		else if( length == flm.getLength() ) return 0;
+		if( length == flm.getLength() ) return 0;
 		else if( length > flm.getLength() ) return 1;
-		else return -1;
+		else {
+			if(filmID > flm.getFilmID()) return 1;
+			else return -1;
+		}
 	}
 
 	@Override
